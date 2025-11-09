@@ -8,10 +8,13 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from flask_login import UserMixin, login_user, LoginManager, current_user, logout_user
 import datetime
 from forms import RegisterForm, LoginForm, AddListForm, AddTaskForm
+from dotenv import load_dotenv
+import os
 
+load_dotenv()
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = '8BYkEfBA6O6donzWlSihBXox7C0sKR6b'
+app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY")
 Bootstrap5(app)
 
 
@@ -19,16 +22,12 @@ class Base(DeclarativeBase):
     pass
 
 
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///to-do-lists.db'
+app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///to-do-lists.db"
 db = SQLAlchemy(model_class=Base)
 db.init_app(app)
 
 login_manager = LoginManager()
 login_manager.init_app(app)
-
-
-class Base(DeclarativeBase):
-    pass
 
 
 class ToDoList(db.Model):
@@ -72,7 +71,9 @@ def load_user(user_id):
 @app.route("/")
 def home():
     if current_user.is_authenticated:
-        result = db.session.execute(db.select(ToDoList).where(ToDoList.author == current_user))
+        result = db.session.execute(
+            db.select(ToDoList).where(ToDoList.author == current_user)
+        )
         to_do_lists = result.scalars().all()
     else:
         to_do_lists = []
@@ -93,33 +94,44 @@ def random_list():
 @app.route("/list/<list_id>")
 def to_do_list(list_id):
     todo_list = db.get_or_404(ToDoList, list_id)
-    result1 = db.session.execute(db.select(Task).where(and_(Task.list_id == list_id, Task.status == "TODO")))
+    result1 = db.session.execute(
+        db.select(Task).where(and_(Task.list_id == list_id, Task.status == "TODO"))
+    )
     tasks_todo = result1.scalars().all()
 
-    result2 = db.session.execute(db.select(Task).where(and_(Task.list_id == list_id, Task.status == "IN PROGRESS")))
+    result2 = db.session.execute(
+        db.select(Task).where(
+            and_(Task.list_id == list_id, Task.status == "IN PROGRESS")
+        )
+    )
     tasks_in_progress = result2.scalars().all()
 
-    result3 = db.session.execute(db.select(Task).where(and_(Task.list_id == list_id, Task.status == "COMPLETED")))
+    result3 = db.session.execute(
+        db.select(Task).where(and_(Task.list_id == list_id, Task.status == "COMPLETED"))
+    )
     tasks_completed = result3.scalars().all()
 
-    return render_template("to-do-list.html",
-                           todo_list=todo_list,
-                           list_id=list_id,
-                           tasks_todo=tasks_todo,
-                           tasks_in_progress=tasks_in_progress,
-                           tasks_completed=tasks_completed)
+    return render_template(
+        "to-do-list.html",
+        todo_list=todo_list,
+        list_id=list_id,
+        tasks_todo=tasks_todo,
+        tasks_in_progress=tasks_in_progress,
+        tasks_completed=tasks_completed,
+    )
 
 
 @app.route("/add-list", methods=["GET", "POST"])
 def add_list():
     form = AddListForm()
     if form.validate_on_submit():
-
-        result = db.session.execute(db.select(ToDoList).where(ToDoList.title == form.title.data))
+        result = db.session.execute(
+            db.select(ToDoList).where(ToDoList.title == form.title.data)
+        )
         to_do = result.scalar()
         if to_do:
             flash("A To-Do-List with that name already exists.")
-            return redirect(url_for('add_list.html'))
+            return redirect(url_for("add_list.html"))
 
         new_list = ToDoList(
             title=form.title.data,
@@ -137,7 +149,6 @@ def add_list():
 def add_task(list_id):
     form = AddTaskForm()
     if form.validate_on_submit():
-
         new_task = Task(
             title=form.title.data,
             text=form.description.data,
@@ -157,7 +168,7 @@ def switch_to_todo(task_id):
     task_to_switch.status = "TODO"
     db.session.commit()
     to_do_list_from_task = db.get_or_404(ToDoList, task_to_switch.parent_list.id)
-    return redirect(url_for('to_do_list', list_id=to_do_list_from_task.id))
+    return redirect(url_for("to_do_list", list_id=to_do_list_from_task.id))
 
 
 @app.route("/switch-to-IN_PROGRESS/<task_id>")
@@ -166,7 +177,7 @@ def switch_to_progress(task_id):
     task_to_switch.status = "IN PROGRESS"
     db.session.commit()
     to_do_list_from_task = db.get_or_404(ToDoList, task_to_switch.parent_list.id)
-    return redirect(url_for('to_do_list', list_id=to_do_list_from_task.id))
+    return redirect(url_for("to_do_list", list_id=to_do_list_from_task.id))
 
 
 @app.route("/switch-to-COMPLETED/<task_id>")
@@ -175,7 +186,7 @@ def switch_to_completed(task_id):
     task_to_switch.status = "COMPLETED"
     db.session.commit()
     to_do_list_from_task = db.get_or_404(ToDoList, task_to_switch.parent_list.id)
-    return redirect(url_for('to_do_list', list_id=to_do_list_from_task.id))
+    return redirect(url_for("to_do_list", list_id=to_do_list_from_task.id))
 
 
 @app.route("/delete_task/<task_id>")
@@ -184,7 +195,7 @@ def delete_task(task_id):
     to_do_list_from_task = db.get_or_404(ToDoList, task_to_delete.parent_list.id)
     db.session.delete(task_to_delete)
     db.session.commit()
-    return redirect(url_for('to_do_list', list_id=to_do_list_from_task.id))
+    return redirect(url_for("to_do_list", list_id=to_do_list_from_task.id))
 
 
 @app.route("/delete_list/<list_id>")
@@ -193,24 +204,23 @@ def delete_list(list_id):
     db.session.execute(db.delete(Task).where(Task.parent_list == list_to_delete))
     db.session.delete(list_to_delete)
     db.session.commit()
-    return redirect(url_for('home'))
+    return redirect(url_for("home"))
 
 
-@app.route('/register', methods=["GET", "POST"])
+@app.route("/register", methods=["GET", "POST"])
 def register():
     form = RegisterForm()
     if form.validate_on_submit():
-
-        result = db.session.execute(db.select(User).where(User.email == form.email.data))
+        result = db.session.execute(
+            db.select(User).where(User.email == form.email.data)
+        )
         user = result.scalar()
         if user:
             flash("You've already signed up with that email, log in instead!")
-            return redirect(url_for('login'))
+            return redirect(url_for("login"))
 
         hash_and_salted_password = generate_password_hash(
-            form.password.data,
-            method='pbkdf2:sha256',
-            salt_length=8
+            form.password.data, method="pbkdf2:sha256", salt_length=8
         )
         new_user = User(
             email=form.email.data,
@@ -225,30 +235,32 @@ def register():
     return render_template("register.html", form=form, current_user=current_user)
 
 
-@app.route('/login', methods=["GET", "POST"])
+@app.route("/login", methods=["GET", "POST"])
 def login():
     form = LoginForm()
     if form.validate_on_submit():
         password = form.password.data
-        result = db.session.execute(db.select(User).where(User.email == form.email.data))
+        result = db.session.execute(
+            db.select(User).where(User.email == form.email.data)
+        )
         user = result.scalar()
         if not user:
             flash("That email does not exist, please try again.")
-            return redirect(url_for('login'))
+            return redirect(url_for("login"))
         elif not check_password_hash(user.password, password):
-            flash('Password incorrect, please try again.')
-            return redirect(url_for('login'))
+            flash("Password incorrect, please try again.")
+            return redirect(url_for("login"))
         else:
             login_user(user)
-            return redirect(url_for('home'))
+            return redirect(url_for("home"))
 
     return render_template("login.html", form=form, current_user=current_user)
 
 
-@app.route('/logout')
+@app.route("/logout")
 def logout():
     logout_user()
-    return redirect(url_for('home'))
+    return redirect(url_for("home"))
 
 
 def main() -> None:
